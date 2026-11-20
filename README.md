@@ -38,3 +38,19 @@ docker exec job-queue-demo mysql -uworker -pdemo-worker-password job_queue -e 'S
 The worker locks the first queued row inside a transaction, updates it using
 the same transaction, and reports a claim only after the commit succeeds.
 Database errors are reported on stderr with a nonzero exit status.
+
+## Integration tests
+
+The tests create and drop uniquely named databases; they do not modify the demo
+`job_queue` database. Supply a DSN for a disposable MySQL server with
+`CREATE DATABASE` and `DROP DATABASE` privileges. For the container above:
+
+```sh
+export MYSQL_TEST_DSN='root:demo-root-password@tcp(127.0.0.1:33067)/'
+go test -race -count=1 -v ./...
+```
+
+The tests run one job against two worker processes, ten jobs against twelve
+worker processes, and a rollback followed by a successful claim. Without
+`MYSQL_TEST_DSN`, the integration tests are skipped. The pull request workflow
+runs them against a MySQL service.

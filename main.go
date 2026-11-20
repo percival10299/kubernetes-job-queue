@@ -19,14 +19,28 @@ func claim(ctx context.Context, db *sql.DB, workerID string) (int64, bool, error
 	}
 	defer tx.Rollback()
 
-	var id int64
-	err = tx.QueryRowContext(ctx,
-		"SELECT id FROM jobs WHERE status = 'queued' ORDER BY id LIMIT 1 FOR UPDATE",
-	).Scan(&id)
-	if errors.Is(err, sql.ErrNoRows) {
+	id, claimed, err := claimInTx(ctx, tx, workerID)
+	if err != nil {
+		return 0, false, err
+	}
+	if !claimed {
 		if err := tx.Rollback(); err != nil {
 			return 0, false, fmt.Errorf("roll back empty claim: %w", err)
 		}
+		return 0, false, nil
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, false, fmt.Errorf("commit claim: %w", err)
+	}
+	return id, true, nil
+}
+
+func claimInTx(ctx context.Context, tx *sql.Tx, workerID string) (int64, bool, error) {
+	var id int64
+	err := tx.QueryRowContext(ctx,
+		"SELECT id FROM jobs WHERE status = 'queued' ORDER BY id LIMIT 1 FOR UPDATE",
+	).Scan(&id)
+	if errors.Is(err, sql.ErrNoRows) {
 		return 0, false, nil
 	}
 	if err != nil {
@@ -38,9 +52,6 @@ func claim(ctx context.Context, db *sql.DB, workerID string) (int64, bool, error
 		workerID, id,
 	); err != nil {
 		return 0, false, fmt.Errorf("update job: %w", err)
-	}
-	if err := tx.Commit(); err != nil {
-		return 0, false, fmt.Errorf("commit claim: %w", err)
 	}
 	return id, true, nil
 }

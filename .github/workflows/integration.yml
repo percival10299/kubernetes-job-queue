@@ -1,0 +1,31 @@
+name: MySQL integration tests
+
+on:
+  pull_request:
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: test-password
+          MYSQL_ROOT_HOST: "%"
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -ptest-password"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Run integration tests
+        env:
+          MYSQL_TEST_DSN: "root:test-password@tcp(127.0.0.1:3306)/"
+        run: go test -race -count=1 -v ./...
