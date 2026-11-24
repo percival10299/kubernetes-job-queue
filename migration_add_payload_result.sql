@@ -1,0 +1,7 @@
+ALTER TABLE jobs
+    ADD COLUMN payload TEXT NULL,
+    ADD COLUMN result TEXT NULL;
+
+UPDATE jobs SET payload = '' WHERE payload IS NULL;
+
+ALTER TABLE jobs MODIFY COLUMN payload TEXT NOT NULL;
